@@ -1,18 +1,18 @@
 /**
  * Vercel serverless-функция: CORS-прокси к GREEN-API.
- * Маршрут: /api/* -> https://<cluster>.api.green-api.com/*
- * Целевой кластер передаётся клиентом в заголовке x-api-url
- * (whitelist: только *.api.green-api.com).
+ * Маршрут: /api/proxy?path=waInstance{id}/{method}/{token}
+ * Целевой кластер передаётся в заголовке x-api-url (whitelist: *.api.green-api.com).
  */
 const ALLOWED_HOST = /^https:\/\/(\d{4}\.)?api\.green-api\.com$/;
 
 export default async function handler(req, res) {
-  const slug = req.query.slug;
-  const path = Array.isArray(slug) ? slug.join('/') : String(slug ?? '');
+  const path = req.query.path;
   const apiUrl = req.headers['x-api-url'];
 
+  if (typeof path !== 'string' || !path) {
+    return res.status(400).json({ error: 'path query parameter is required' });
+  }
   if (typeof apiUrl !== 'string' || !ALLOWED_HOST.test(apiUrl)) {
-    res.setHeader('Content-Type', 'application/json');
     return res.status(400).json({ error: 'x-api-url must match https://<cluster>.api.green-api.com' });
   }
 
