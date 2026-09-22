@@ -10,7 +10,8 @@
 
 ## 🚀 Живое демо
 
-🔗 **[Открыть приложение](#)** *(деплой в процессе настройки)*
+🔗 **[Открыть приложение](https://green-api-max-chat.vercel.app)**
+🎥 **[Видео-демо (16 сек)](https://dmitrymironov.ru/uploads/media/greenchatapi.mp4)**
 
 Введите свои `idInstance` и `apiTokenInstance` из [кабинета GREEN-API](https://console.green-api.com), создайте чат по номеру телефона и начните переписку.
 
