@@ -1,7 +1,8 @@
 /**
  * Vercel serverless-функция: CORS-прокси к GREEN-API.
  * Маршрут: /api/* -> https://<cluster>.api.green-api.com/*
- * Кластер передаёт клиент заголовком x-api-url (whitelist: только *.api.green-api.com).
+ * Целевой кластер передаётся клиентом в заголовке x-api-url
+ * (whitelist: только *.api.green-api.com).
  */
 const ALLOWED_HOST = /^https:\/\/(\d{4}\.)?api\.green-api\.com$/;
 
