@@ -6,7 +6,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://3100.api.green-api.com', // apiUrl из кабинета
+        // Твой apiUrl из кабинета GREEN-API.
+        // Для другого кластера: GREEN_API_TARGET=https://4100.api.green-api.com npm run dev
+        target: process.env.GREEN_API_TARGET || 'https://3100.api.green-api.com',
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path.replace(/^\/api/, ''),

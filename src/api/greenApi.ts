@@ -4,6 +4,14 @@ import type { Credentials, RawNotification } from '../types';
 const instanceUrl = (c: Credentials) =>
   `${USE_VITE_PROXY ? '/api' : c.apiUrl}/${INSTANCE_PREFIX}${c.idInstance}`;
 
+/** В режиме прокси (dev Vite / prod Vercel) передаём целевой кластер заголовком. */
+function headersWithProxy(c: Credentials, withJson = false): Record<string, string> {
+  const h: Record<string, string> = {};
+  if (withJson) h['Content-Type'] = 'application/json';
+  if (USE_VITE_PROXY) h['x-api-url'] = c.apiUrl;
+  return h;
+}
+
 export class GreenApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -33,7 +41,7 @@ export function sendMessage(c: Credentials, chatId: string, message: string) {
     `${instanceUrl(c)}/sendMessage/${c.apiTokenInstance}`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headersWithProxy(c, true),
       body: JSON.stringify({ chatId, message }),
     },
   );
@@ -46,8 +54,7 @@ export interface CheckAccountResult {
 }
 
 /**
- * MAX: chatId != номер телефона. Перед отправкой номер нужно
- * разрешить в chatId методом CheckAccount (ответ: { exist, chatId }).
+ * MAX: chatId != номер телефона. Номер разрешаем в chatId методом CheckAccount.
  * Перебираем варианты тела запроса на случай расхождений версий API.
  */
 export async function checkAccount(c: Credentials, phoneNumber: string): Promise<CheckAccountResult> {
@@ -62,7 +69,7 @@ export async function checkAccount(c: Credentials, phoneNumber: string): Promise
     try {
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headersWithProxy(c, true),
         body: JSON.stringify(body),
       });
       if (res.ok) return (await res.json()) as CheckAccountResult;
@@ -75,35 +82,32 @@ export async function checkAccount(c: Credentials, phoneNumber: string): Promise
 }
 
 /**
- * Требование №7: получение через HTTP API — поллинг очереди уведомлений
- * (receiveNotification). Пустая очередь может вернуться как пустой массив,
- * пустой объект, null или даже пустое тело — нормализуем всё к null.
+ * Требование №7: получение через HTTP API — поллинг очереди уведомлений.
+ * Пустая очередь может вернуться пустым телом — нормализуем к null.
  */
 export async function receiveNotification(c: Credentials): Promise<RawNotification | null> {
-  const res = await fetch(`${instanceUrl(c)}/receiveNotification/${c.apiTokenInstance}`);
+  const res = await fetch(`${instanceUrl(c)}/receiveNotification/${c.apiTokenInstance}`, {
+    headers: headersWithProxy(c),
+  });
   if (!res.ok) throw new GreenApiError(res.status, `receiveNotification: HTTP ${res.status}`);
-  
-  // Защита от пустого тела или не-JSON ответа
   const text = await res.text();
   if (!text || text.trim() === '') return null;
-  
   try {
     const data = JSON.parse(text) as RawNotification | RawNotification[] | null;
     if (!data || Array.isArray(data)) return null;
     return data;
   } catch {
-    // Если не удалось распарсить как JSON — логируем и возвращаем null
     console.warn('[GREEN-API] Не удалось распарсить ответ receiveNotification:', text);
     return null;
   }
 }
 
-/** Удаление уведомления из очереди (если инстанс не чистит её сам). Ошибки не критичны. */
+/** Удаление уведомления из очереди. Ошибки не критичны. */
 export async function deleteNotification(c: Credentials, receiptId: number): Promise<void> {
   try {
     await fetch(
       `${instanceUrl(c)}/deleteNotification/${c.apiTokenInstance}/${receiptId}`,
-      { method: 'DELETE' },
+      { method: 'DELETE', headers: headersWithProxy(c) },
     );
   } catch {
     /* дубликаты отфильтрует дедупликация по idMessage */
