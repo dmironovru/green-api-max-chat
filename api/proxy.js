@@ -12,17 +12,12 @@ export default async function handler(req, res) {
   const path = req.query.path;
   const apiUrl = req.headers['x-api-url'];
 
-  // 1. Проверка HTTP метода
   if (!ALLOWED_METHODS.has(req.method)) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
-  // 2. Проверка path на формат (whitelist методов GREEN-API)
   if (typeof path !== 'string' || !ALLOWED_PATH.test(path)) {
     return res.status(400).json({ error: 'Invalid path format' });
   }
-
-  // 3. Проверка apiUrl на whitelist
   if (typeof apiUrl !== 'string' || !ALLOWED_HOST.test(apiUrl)) {
     return res.status(400).json({ error: 'x-api-url must match https://<cluster>.api.green-api.com' });
   }
@@ -40,6 +35,8 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     return res.send(text);
   } catch (e) {
-    return res.status(502).json({ error: `proxy error: ${e.message}` });
+    // Не логируем e.message — он может содержать URL с apiTokenInstance
+    console.error('proxy error:', e instanceof Error ? e.name : 'unknown');
+    return res.status(502).json({ error: 'proxy error' });
   }
 }

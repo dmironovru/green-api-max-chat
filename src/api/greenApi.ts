@@ -74,26 +74,18 @@ export async function checkAccount(c: Credentials, phoneNumber: string): Promise
     ? `${instanceUrl(c)}?path=${encodeURIComponent(buildPath(c, 'checkAccount', c.apiTokenInstance))}`
     : `${instanceUrl(c)}/checkAccount/${c.apiTokenInstance}`;
 
-  const bodies: Record<string, unknown>[] = [
-    { phoneNumber },
-    { phoneNumber: Number(phoneNumber) },
-    { chatId: `${phoneNumber}@c.us` },
-  ];
-  let lastError: Error | null = null;
-  for (const body of bodies) {
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: headersWithProxy(c, true),
-        body: JSON.stringify(body),
-      });
-      if (res.ok) return (await res.json()) as CheckAccountResult;
-      lastError = new GreenApiError(res.status, `checkAccount: HTTP ${res.status}`);
-    } catch (e) {
-      lastError = e as Error;
-    }
+  // MAX ожидает phoneNumber как integer, 11-12 цифр [citation:5]
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: headersWithProxy(c, true),
+    body: JSON.stringify({ phoneNumber: Number(phoneNumber) }),
+  });
+
+  if (!res.ok) {
+    throw new GreenApiError(res.status, `checkAccount: HTTP ${res.status}`);
   }
-  throw lastError ?? new Error('checkAccount: неизвестная ошибка');
+
+  return (await res.json()) as CheckAccountResult;
 }
 
 /**
@@ -114,7 +106,7 @@ export async function receiveNotification(c: Credentials): Promise<RawNotificati
     if (!data || Array.isArray(data)) return null;
     return data;
   } catch {
-    console.warn('[GREEN-API] Не удалось распарсить ответ receiveNotification:', text);
+    console.warn('[GREEN-API] receiveNotification: не JSON, длина', text.length);
     return null;
   }
 }
@@ -127,7 +119,8 @@ export async function deleteNotification(c: Credentials, receiptId: number): Pro
     : `${c.apiUrl}/${path}`;
 
   try {
-    await fetch(url, { method: 'DELETE', headers: headersWithProxy(c) });
+    const res = await fetch(url, { method: 'DELETE', headers: headersWithProxy(c) });
+    if (!res.ok) console.warn('[GREEN-API] deleteNotification failed:', res.status);
   } catch {
     /* дубликаты отфильтрует дедупликация по idMessage */
   }
