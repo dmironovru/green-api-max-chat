@@ -182,3 +182,10 @@ export default async function handler(req, res) {
 ## 📝 License
 
 MIT
+
+###
+
+**Автор:** Дмитрий Миронов  
+**Email:** [mdsdzr@gmail.com](mailto:mdsdzr@gmail.com)  
+**GitHub:** [dmironovru](https://github.com/dmironovru)  
+**Сайт:** [dmitrymironov.ru](https://dmitrymironov.ru)
