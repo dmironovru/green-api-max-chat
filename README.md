@@ -8,7 +8,8 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
 ## 🚀 Демо
-**Открыть приложение:** https://green-api-max-chat.vercel.app 
+
+**Приложение:** https://green-api-max-chat.vercel.app
 
 **Видео-демо (16 сек):** https://dmitrymironov.ru/uploads/media/greenchatapi.mp4
 
@@ -55,10 +56,13 @@
 
 ### CORS и прокси
 
-GREEN-API не отдаёт `Access-Control-Allow-Origin` для браузеров. Локально используется **Vite dev proxy**, браузер ходит на свой origin.
+GREEN-API не отдаёт `Access-Control-Allow-Origin` для браузеров. Решение:
+
+- **Локально (dev):** Vite dev proxy — браузер ходит на свой origin, прокси пересылает запросы на `*.api.green-api.com`
+- **В проде:** serverless-функция `api/proxy.js` на Vercel с whitelist-валидацией заголовка `x-api-url`
 
 ```ts
-// vite.config.ts
+// vite.config.ts (для локальной разработки)
 server: {
   proxy: {
     '/api': {
@@ -93,6 +97,10 @@ const chatId = String(account.chatId);
 
 Каждому инстансу выдаётся свой `apiUrl` (например, `https://3100.api.green-api.com`). В форме есть поле `apiUrl`; если оставить пустым — хост выводится из первых 4 цифр `idInstance`.
 
+### 4. Квота тарифа «Разработчик»
+
+На бесплатном тарифе GREEN-API разрешено переписываться только с 3 чатами в месяц. Превышение — ошибка `466 CORRESPONDENTS_QUOTA_EXCEEDED`. Решение: дисциплина квоты — тестовый собеседник, «Избранное» для тестов, неприкосновенный запас.
+
 ## 🚀 Запуск локально
 
 ```bash
@@ -105,16 +113,71 @@ npm run dev
 
 Введите `idInstance`, `apiTokenInstance`, `apiUrl` (можно оставить пустым — выведется из `idInstance`) из [кабинета GREEN-API](https://console.green-api.com).
 
+## 🌐 Деплой
+
+Проект задеплоен на **Vercel** с serverless-прокси для обхода CORS.
+
+### Serverless-функция `api/proxy.js`
+
+```javascript
+const ALLOWED_HOST = /^https:\/\/(\d{4}\.)?api\.green-api\.com$/;
+const ALLOWED_METHODS = new Set(['GET', 'POST', 'DELETE']);
+const ALLOWED_PATH = /^waInstance\d+\/(sendMessage|receiveNotification|deleteNotification|checkAccount)\/[A-Za-z0-9\-]+(\/\d+)?(\?.*)?$/;
+
+export default async function handler(req, res) {
+  const path = req.query.path;
+  const apiUrl = req.headers['x-api-url'];
+
+  if (!ALLOWED_METHODS.has(req.method)) {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  if (typeof path !== 'string' || !ALLOWED_PATH.test(path)) {
+    return res.status(400).json({ error: 'Invalid path format' });
+  }
+
+  if (typeof apiUrl !== 'string' || !ALLOWED_HOST.test(apiUrl)) {
+    return res.status(400).json({ error: 'x-api-url must match https://<cluster>.api.green-api.com' });
+  }
+
+  const hasBody = req.method !== 'GET' && req.method !== 'HEAD';
+  try {
+    const response = await fetch(`${apiUrl}/${path}`, {
+      method: req.method,
+      headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
+      body: hasBody ? JSON.stringify(req.body ?? {}) : undefined,
+    });
+    const text = await response.text();
+    res.status(response.status);
+    res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(text);
+  } catch (e) {
+    return res.status(502).json({ error: `proxy error: ${e.message}` });
+  }
+}
+```
+
+### Как работает
+
+Каждый посетитель вводит свой `apiUrl` в форме логина, и прокси пересылает запросы на нужный кластер. Валидация по whitelist:
+
+- `x-api-url` — только `*.api.green-api.com`
+- `path` — только разрешённые методы GREEN-API
+- HTTP методы — только `GET`, `POST`, `DELETE`
+
+Это позволяет использовать приложение с **любым** инстансом MAX без хардкода кластера.
+
 ## 🔒 Безопасность
 
 - `apiTokenInstance` хранится **только в `localStorage` браузера пользователя** и никогда не коммитится в репозиторий
 - Каждый посетитель вводит **свои собственные** креды из своего кабинета GREEN-API — чужие токены недоступны
 - Serverless-функция валидирует:
   - `x-api-url` по whitelist `*.api.green-api.com` (нельзя направить запрос на сторонний сервер)
-  - `path` по whitelist методов GREEN-API (`sendMessage`, `receiveNotification`, `deleteNotification`, `checkAccount` и т.д.)
+  - `path` по whitelist методов GREEN-API (`sendMessage`, `receiveNotification`, `deleteNotification`, `checkAccount`)
   - HTTP методы только `GET`, `POST`, `DELETE`
-- **Важно:** в этом прототипе токен вводится пользователем в форму и хранится в его localStorage. Прокси только обходит CORS. Для production-решения токен должен храниться на сервере (env переменная), а браузер делать запросы без токена
-- Перед публикацией скриншотов/видео замазывайте `idInstance`, `apiTokenInstance`, номера телефонов, имена контактов.
+- **Важно:** в этом прототипе токен вводится пользователем в форму и хранится в его localStorage. Прокси только обходит CORS. Для production-решения токен должен храниться на сервере (env-переменная), а браузер должен делать запросы без токена
+- Перед публикацией скриншотов/видео замазывайте `idInstance`, `apiTokenInstance`, номера телефонов, имена контактов
 
 ## 📝 License
 

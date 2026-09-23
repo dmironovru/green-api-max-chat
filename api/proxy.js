@@ -6,7 +6,7 @@
 
 const ALLOWED_HOST = /^https:\/\/(\d{4}\.)?api\.green-api\.com$/;
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'DELETE']);
-const ALLOWED_PATH = /^waInstance\d+\/(sendMessage|receiveNotification|deleteNotification|checkAccount|getStateInstance|getSettings)\/[A-Za-z0-9\-]+(\/\d+)?(\?.*)?$/;
+const ALLOWED_PATH = /^waInstance\d+\/(sendMessage|receiveNotification|deleteNotification|checkAccount)\/[A-Za-z0-9\-]+(\/\d+)?(\?.*)?$/;
 
 export default async function handler(req, res) {
   const path = req.query.path;
