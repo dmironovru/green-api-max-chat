@@ -1,17 +1,28 @@
 /**
  * Vercel serverless-функция: CORS-прокси к GREEN-API.
- * Маршрут: /api/proxy?path=waInstance{id}/{method}/{token}
+ * Маршрут: /api/proxy?path=waInstance{id}/{method}/{token}[/receiptId]
  * Целевой кластер передаётся в заголовке x-api-url (whitelist: *.api.green-api.com).
  */
+
 const ALLOWED_HOST = /^https:\/\/(\d{4}\.)?api\.green-api\.com$/;
+const ALLOWED_METHODS = new Set(['GET', 'POST', 'DELETE']);
+const ALLOWED_PATH = /^waInstance\d+\/(sendMessage|receiveNotification|deleteNotification|checkAccount|getStateInstance|getSettings)\/[A-Za-z0-9\-]+(\/\d+)?(\?.*)?$/;
 
 export default async function handler(req, res) {
   const path = req.query.path;
   const apiUrl = req.headers['x-api-url'];
 
-  if (typeof path !== 'string' || !path) {
-    return res.status(400).json({ error: 'path query parameter is required' });
+  // 1. Проверка HTTP метода
+  if (!ALLOWED_METHODS.has(req.method)) {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // 2. Проверка path на формат (whitelist методов GREEN-API)
+  if (typeof path !== 'string' || !ALLOWED_PATH.test(path)) {
+    return res.status(400).json({ error: 'Invalid path format' });
+  }
+
+  // 3. Проверка apiUrl на whitelist
   if (typeof apiUrl !== 'string' || !ALLOWED_HOST.test(apiUrl)) {
     return res.status(400).json({ error: 'x-api-url must match https://<cluster>.api.green-api.com' });
   }
