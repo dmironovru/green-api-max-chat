@@ -153,7 +153,9 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     return res.send(text);
   } catch (e) {
-    return res.status(502).json({ error: `proxy error: ${e.message}` });
+    // Не логируем e.message — он может содержать URL с apiTokenInstance
+    console.error('proxy error:', e instanceof Error ? e.name : 'unknown');
+    return res.status(502).json({ error: 'proxy error' });
   }
 }
 ```
@@ -183,7 +185,7 @@ export default async function handler(req, res) {
 
 MIT
 
-###
+---
 
 **Автор:** Дмитрий Миронов  
 **Email:** [mdsdzr@gmail.com](mailto:mdsdzr@gmail.com)  
